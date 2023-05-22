@@ -1,0 +1,58 @@
+{
+    "os": "Linux-5.15.107+-x86_64-with-glibc2.31",
+    "python": "3.10.11",
+    "heartbeatAt": "2023-05-21T08:57:28.184608",
+    "startedAt": "2023-05-21T08:57:27.760821",
+    "docker": null,
+    "cuda": null,
+    "args": [
+        "--loss",
+        "energy"
+    ],
+    "state": "running",
+    "program": "/content/drive/Othercomputers/xiaoxin/Two-Stage-MedImg-Seg/train.py",
+    "codePath": "train.py",
+    "git": {
+        "remote": "git@github.com:LucaJiang/Two-Stage-MedImg-Seg.git",
+        "commit": "07b22d8af2ab445276e4d9450ef0050fe2172550"
+    },
+    "email": null,
+    "root": "/content/drive/Othercomputers/xiaoxin/Two-Stage-MedImg-Seg",
+    "host": "fd0af1df1c0b",
+    "username": "root",
+    "executable": "/usr/bin/python3",
+    "cpu_count": 1,
+    "cpu_count_logical": 2,
+    "cpu_freq": {
+        "current": 2299.998,
+        "min": 0.0,
+        "max": 0.0
+    },
+    "cpu_freq_per_core": [
+        {
+            "current": 2299.998,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2299.998,
+            "min": 0.0,
+            "max": 0.0
+        }
+    ],
+    "disk": {
+        "total": 78.1898422241211,
+        "used": 23.342586517333984
+    },
+    "gpu": "Tesla V100-SXM2-16GB",
+    "gpu_count": 1,
+    "gpu_devices": [
+        {
+            "name": "Tesla V100-SXM2-16GB",
+            "memory_total": 17179869184
+        }
+    ],
+    "memory": {
+        "total": 12.678398132324219
+    }
+}
