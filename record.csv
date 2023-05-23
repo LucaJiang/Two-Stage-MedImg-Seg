@@ -1,0 +1,1 @@
+train_loss, train_dice_score, train_iou, train_f1, train_auc, val_loss, val_dice_score, val_iou, val_f1, val_auc

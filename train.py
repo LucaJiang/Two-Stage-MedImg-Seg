@@ -320,7 +320,20 @@ def train_model(# do not change params here
         'val f1': val_f1,
         'val auc': val_auc,
     })
-
+    if os.path.exists('record.csv'):
+        record = np.loadtxt('record.csv', delimiter=',')
+        record = np.vstack((record, [
+            train_loss, train_dice_score, train_iou, train_f1, train_auc,
+            val_loss, val_dice_score, val_iou, val_f1, val_auc
+        ]))
+    else:
+        record = np.array([
+            train_loss, train_dice_score, train_iou, train_f1, train_auc,
+            val_loss, val_dice_score, val_iou, val_f1, val_auc
+        ])
+    np.savetxt('record.csv', record, delimiter=',')
+    experiment.finish()
+    
 
 if __name__ == '__main__':
     seed = 0
