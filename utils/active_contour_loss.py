@@ -9,11 +9,12 @@ class ACLoss(nn.Module):
     based on sobel filter
     """
 
-    def __init__(self, miu=1.0, classes=3):
+    def __init__(self, miu=1.0, classes=3, device='cpu'):
         super(ACLoss, self).__init__()
 
         self.miu = miu
         self.classes = classes
+        self.device = device
         sobel_x = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]])
         sobel_y = np.array([[-1, -2, -1], [0, 0, 0], [1, 2, 1]])
 
@@ -32,6 +33,7 @@ class ACLoss(nn.Module):
                                 padding=1,
                                 bias=False)
         self.diff_x.weight = self.sobel_x
+
         self.diff_y = nn.Conv2d(self.classes,
                                 self.classes,
                                 groups=self.classes,
@@ -43,8 +45,8 @@ class ACLoss(nn.Module):
 
     def forward(self, predication, label):
         # change B*H*W to B*C*H*W
-        predication = predication.unsqueeze(1)
-        label = label.unsqueeze(1)
+        predication = predication.unsqueeze(1).cpu()
+        label = label.unsqueeze(1).cpu()
 
         grd_x = self.diff_x(predication)
         grd_y = self.diff_y(predication)
@@ -62,7 +64,7 @@ class ACLoss(nn.Module):
             torch.sum((1 - predication) * ((label - c_out)**2)))
         region = self.miu * region_in + region_out
 
-        return region + length
+        return (region + length).to(self.device)
 
 
 class ACLossV2(nn.Module):
@@ -71,13 +73,17 @@ class ACLossV2(nn.Module):
     based on maxpooling & minpooling
     """
 
-    def __init__(self, miu=1.0, classes=3):
+    def __init__(self, miu=1.0, classes=3, device='cpu'):
         super(ACLossV2, self).__init__()
 
         self.miu = miu
         self.classes = classes
+        self.device = device
 
     def forward(self, predication, label):
+        # change B*H*W to B*C*H*W
+        predication = predication.unsqueeze(1)
+        label = label.unsqueeze(1)
         min_pool_x = nn.functional.max_pool2d(predication * -1,
                                               (3, 3), 1, 1) * -1
         contour = torch.relu(
@@ -174,4 +180,3 @@ def ACELoss(y_pred, y_true, u=1, a=1, b=1):
 
     loss = region(y_pred, y_true, u=u) + elastica(y_pred, a=a, b=b)
     return loss
-

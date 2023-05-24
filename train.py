@@ -3,6 +3,7 @@ import logging
 import os, sys
 import random
 import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -71,7 +72,7 @@ def get_args():
         help='Percent of the data that is used as validation (0-100)')
     parser.add_argument('--amp',
                         action='store_true',
-                        default=True,
+                        default=False,
                         help='Use mixed precision')
     return parser.parse_args()
 
@@ -169,8 +170,7 @@ def train_model(# do not change params here
     # optimizer = optim.AdamW(model.parameters(),lr=learning_rate, weight_decay=weight_decay)
     optimizer = optim.Adam(model.parameters(),
                            lr=learning_rate,
-                           weight_decay=weight_decay,
-                           amsgrad=True)
+                           weight_decay=weight_decay)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, 'min', patience=5)  # goal: minimize val-loss
     grad_scaler = torch.cuda.amp.GradScaler(enabled=amp)
@@ -180,9 +180,9 @@ def train_model(# do not change params here
     elif loss_type == 'energy':
         criterion = EnergyLoss(cuda=True, alpha=0.35, sigma=0.25)
     elif loss_type == 'ac':
-        criterion = ACLoss(classes=1)
+        criterion = ACLoss(classes=1, device=device)
     elif loss_type == 'ac2':
-        criterion = ACLossV2(classes=1)
+        criterion = ACLossV2(classes=1, device=device)
     elif loss_type == 'nll':
         criterion = LogNLLLoss()
     elif loss_type == 'dice':
@@ -240,21 +240,24 @@ def train_model(# do not change params here
                 })
                 pbar.set_postfix(**{'loss (batch)': loss.item()})
 
-        histograms = {}
-        for tag, value in model.named_parameters():
-            tag = tag.replace('/', '.')
-            if not torch.isinf(value).any():
-                histograms['Weights/' + tag] = wandb.Histogram(
-                    value.data.cpu())
-            if not torch.isinf(value.grad).any():
-                histograms['Gradients/' + tag] = wandb.Histogram(
-                    value.grad.data.cpu())
+        # histograms = {}
+        # for tag, value in model.named_parameters():
+        #     tag = tag.replace('/', '.')
+        #     if not torch.isinf(value).any():
+        #         histograms['Weights/' + tag] = wandb.Histogram(
+        #             value.data.cpu())
+        #     if not torch.isinf(value.grad).any():
+        #         histograms['Gradients/' + tag] = wandb.Histogram(
+        #             value.grad.data.cpu())
         if epoch % 3 == 0:
             val_score = evaluate(model, val_loader, criterion, device, amp)
             # scheduler.step(loss)
             scheduler.step(val_score)
 
             logging.info('Validation loss score: {}'.format(val_score))
+            if loss_type == 'energy':
+                _masks_pred0 = masks_pred[0].float().cpu().detach().numpy()
+                _masks_pred0 = np.where(_masks_pred0 > 0.1, 1, 0) * 255.0
             try:
                 experiment.log({
                     'learning rate': optimizer.param_groups[0]['lr'],
@@ -263,11 +266,11 @@ def train_model(# do not change params here
                     'masks': {
                         'true': wandb.Image(true_masks[0].float().cpu()),
                         'pred':
-                        wandb.Image(masks_pred[0].float().cpu() * 255.0),
+                        wandb.Image(masks_pred[0].float().cpu() * 255.0) if loss_type != 'energy' else wandb.Image(_masks_pred0),
                     },
                     'step': global_step,
                     'epoch': epoch,
-                    **histograms
+                    # **histograms
                 })
             except:
                 pass
@@ -321,17 +324,21 @@ def train_model(# do not change params here
         'val f1': val_f1,
     })
     if os.path.exists('record.csv'):
-        record = np.loadtxt('record.csv', delimiter=',')
-        record = np.vstack(record, np.array([
-            train_loss, train_dice_score, train_iou, train_f1,
-            val_loss, val_dice_score, val_iou, val_f1
-        ]))
+        record = pd.read_csv('record.csv', header=0)
+        record = pd.concat([record, pd.Series([
+            train_loss.cpu().numpy(), train_dice_score.cpu().numpy(), train_iou.cpu().numpy(), train_f1.cpu().numpy(), val_loss.cpu().numpy(), val_dice_score.cpu().numpy(), val_iou.cpu().numpy(), val_f1.cpu().numpy()
+        ], index=record.columns)])
     else:
-        record = np.array([
-            train_loss, train_dice_score, train_iou, train_f1,
-            val_loss, val_dice_score, val_iou, val_f1
-        ])
-    np.savetxt('record.csv', record, delimiter=',')
+        record = pd.DataFrame(
+            columns=[
+                'train loss', 'train dice score', 'train iou', 'train f1',
+                'val loss', 'val dice score', 'val iou', 'val f1'
+            ])
+        record = pd.concat([record, pd.Series([
+            train_loss.cpu().numpy(), train_dice_score.cpu().numpy(), train_iou.cpu().numpy(), train_f1.cpu().numpy(), val_loss.cpu().numpy(), val_dice_score.cpu().numpy(), val_iou.cpu().numpy(), val_f1.cpu().numpy()
+        ], index=record.columns)])
+    record.to_csv('record.csv', index=False)
+
     experiment.finish()
 
 
