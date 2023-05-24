@@ -1,6 +1,9 @@
 .tmp*
 checkpoints/
 wandb/
+*.pptx
+*.ipynb
+record.csv
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 from torch.nn.functional import nll_loss
 from torch.nn.modules.loss import _WeightedLoss
 
@@ -15,22 +16,8 @@ class LogNLLLoss(_WeightedLoss):
         self.ignore_index = ignore_index
 
     def forward(self, y_input, y_target):
-        y_input = torch.log(y_input + EPSILON)
-        y_input = y_input.view(-1, y_input.size(1))
-        y_target = y_target.view(-1, y_target.size(1))
-        return nll_loss(y_input, y_target, weight=self.weight,
-                             ignore_index=self.ignore_index)
-    
-class NLLLoss(_WeightedLoss):
-    __constants__ = ['weight', 'reduction', 'ignore_index']
-
-    def __init__(self, weight=None, size_average=None, reduce=None, reduction=None,
-                 ignore_index=-100):
-        super(NLLLoss, self).__init__(weight, size_average, reduce, reduction)
-        self.ignore_index = ignore_index
-
-    def forward(self, y_input, y_target):
-        y_input = y_input.view(-1, y_input.size(1))
-        y_target = y_target.view(-1, y_target.size(1))
+        y_input = nn.LogSoftmax(dim=1)(y_input + EPSILON)
+        y_input = y_input.view(-1)
+        y_target = y_target.long().view(-1)
         return nll_loss(y_input, y_target, weight=self.weight,
                              ignore_index=self.ignore_index)

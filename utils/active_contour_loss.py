@@ -42,6 +42,10 @@ class ACLoss(nn.Module):
         self.diff_y.weight = self.sobel_y
 
     def forward(self, predication, label):
+        # change B*H*W to B*C*H*W
+        predication = predication.unsqueeze(1)
+        label = label.unsqueeze(1)
+
         grd_x = self.diff_x(predication)
         grd_y = self.diff_y(predication)
 

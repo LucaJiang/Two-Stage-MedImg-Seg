@@ -16,10 +16,10 @@ import wandb
 from evaluate import evaluate, evaluate_all
 import unet
 from utils.data_loading import BasicDataset, load_image
-from utils.dice_score import DiceBCELoss
+from utils.dice_score import DiceBCELoss, DiceLoss
 from utils.elastic_loss import EnergyLoss
 from utils.active_contour_loss import ACLoss, ACLossV2
-from utils.nll_loss import LogNLLLoss, NLLLoss
+from utils.nll_loss import LogNLLLoss
 # from utils.metrics import classwise_iou, classwise_f1
 
 dir_img = Path('./data/HEqDRIVE/train/images/')
@@ -35,7 +35,7 @@ def get_args():
                         '-e',
                         metavar='E',
                         type=int,
-                        default=100,
+                        default=50,
                         help='Number of epochs')
     parser.add_argument('--batch-size',
                         '-b',
@@ -111,7 +111,7 @@ def train_model(# do not change params here
     #     transforms.Resize(256),
     #     transforms.ToTensor()
     # ])
-    resize = 512
+    resize = 256
     train_transform = A.Compose([
         A.RandomCrop(height=128, width=128, p=0.5),
         A.HorizontalFlip(p=0.5),
@@ -178,15 +178,15 @@ def train_model(# do not change params here
     if loss_type == 'bce':
         criterion = nn.BCEWithLogitsLoss()
     elif loss_type == 'energy':
-        criterion = EnergyLoss(cuda=False, alpha=0.35, sigma=0.25)
+        criterion = EnergyLoss(cuda=True, alpha=0.35, sigma=0.25)
     elif loss_type == 'ac':
-        criterion = ACLoss()
+        criterion = ACLoss(classes=1)
     elif loss_type == 'ac2':
-        criterion = ACLossV2()
+        criterion = ACLossV2(classes=1)
     elif loss_type == 'nll':
-        criterion = NLLLoss()
-    elif loss_type == 'lognll':
         criterion = LogNLLLoss()
+    elif loss_type == 'dice':
+        criterion = DiceLoss()
     elif loss_type == 'dice_bce':
         criterion = DiceBCELoss()
     else:
@@ -219,6 +219,8 @@ def train_model(# do not change params here
                         device.type if device.type != 'mps' else 'cpu',
                         enabled=amp):
                     masks_pred = model(images)
+                    # print(masks_pred.shape, true_masks.shape)
+                    # torch.Size([4, 1, 256, 256]) torch.Size([4, 256, 256])
                     loss = criterion(masks_pred.squeeze(1), true_masks.float())
 
                 optimizer.zero_grad(set_to_none=True)
@@ -298,42 +300,40 @@ def train_model(# do not change params here
     # 7. compute metrics on train and val set
     if best_state_dict:
         model.load_state_dict(best_state_dict)
-    train_loss, train_dice_score, train_iou, train_f1, train_auc = evaluate_all(
+    train_loss, train_dice_score, train_iou, train_f1 = evaluate_all(
         model, train_loader, criterion, device, amp)
-    val_loss, val_dice_score, val_iou, val_f1, val_auc = evaluate_all(
+    val_loss, val_dice_score, val_iou, val_f1 = evaluate_all(
         model, val_loader, criterion, device, amp)
     logging.info(
-        f'Train loss: {train_loss:.4f} | Train dice score: {train_dice_score:.4f} | Train iou: {train_iou:.4f} | Train f1: {train_f1:.4f} | Train auc: {train_auc:.4f}'
+        f'Train loss: {train_loss:.4f} | Train dice score: {train_dice_score:.4f} | Train iou: {train_iou:.4f} | Train f1: {train_f1:.4f}'
     )
     logging.info(
-        f'Val loss: {val_loss:.4f} | Val dice score: {val_dice_score:.4f} | Val iou: {val_iou:.4f} | Val f1: {val_f1:.4f} | Val auc: {val_auc:.4f}'
+        f'Val loss: {val_loss:.4f} | Val dice score: {val_dice_score:.4f} | Val iou: {val_iou:.4f} | Val f1: {val_f1:.4f}'
     )
     experiment.log({
         'train loss': train_loss,
         'train dice score': train_dice_score,
         'train iou': train_iou,
         'train f1': train_f1,
-        'train auc': train_auc,
         'val loss': val_loss,
         'val dice score': val_dice_score,
         'val iou': val_iou,
         'val f1': val_f1,
-        'val auc': val_auc,
     })
     if os.path.exists('record.csv'):
         record = np.loadtxt('record.csv', delimiter=',')
-        record = np.vstack((record, [
-            train_loss, train_dice_score, train_iou, train_f1, train_auc,
-            val_loss, val_dice_score, val_iou, val_f1, val_auc
+        record = np.vstack(record, np.array([
+            train_loss, train_dice_score, train_iou, train_f1,
+            val_loss, val_dice_score, val_iou, val_f1
         ]))
     else:
         record = np.array([
-            train_loss, train_dice_score, train_iou, train_f1, train_auc,
-            val_loss, val_dice_score, val_iou, val_f1, val_auc
+            train_loss, train_dice_score, train_iou, train_f1,
+            val_loss, val_dice_score, val_iou, val_f1
         ])
     np.savetxt('record.csv', record, delimiter=',')
     experiment.finish()
-    
+
 
 if __name__ == '__main__':
     seed = 0

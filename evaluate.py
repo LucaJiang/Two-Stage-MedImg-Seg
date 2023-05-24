@@ -40,7 +40,6 @@ def evaluate_all(net, dataloader, criterion, device, amp):
     iou = 0
     f1 = 0
     loss = 0
-    auc = 0
     with torch.autocast(device.type if device.type != 'mps' else 'cpu', enabled=amp):
         for batch in tqdm(dataloader, total=num_batches, desc='Eval round', unit='batch', leave=False):
             image, mask_true = batch['image'], batch['mask']
@@ -49,11 +48,13 @@ def evaluate_all(net, dataloader, criterion, device, amp):
             mask_true = mask_true.to(device=device, dtype=torch.long)
             # predict the mask
             mask_pred = net(image)
-            mask_pred_threshold = torch.squeeze((torch.sigmoid(mask_pred) > 0.5).float())
+            mask_pred = mask_pred.squeeze(1)
+            mask_pred_threshold = (torch.sigmoid(mask_pred) > 0.5).float()
             # calculate metrics
             dice_score += dice_coeff(mask_pred_threshold, mask_true, reduce_batch_first=False)
             iou += classwise_iou(mask_pred_threshold, mask_true)
-            f1, auc += classwise_f1(mask_pred_threshold, mask_true)
+            f1 += classwise_f1(mask_pred_threshold, mask_true)
             loss += criterion(mask_pred.squeeze(1), mask_true.float())
     net.train()
-    return loss / max(num_batches, 1), dice_score / max(num_batches, 1), iou / max(num_batches, 1), f1 / max(num_batches, 1), auc / max(num_batches, 1)
+    return loss / max(num_batches, 1), dice_score / max(num_batches, 1), iou / max(num_batches, 1), f1 / max(num_batches, 1)
+

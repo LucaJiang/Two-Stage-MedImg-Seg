@@ -106,13 +106,14 @@ class EnergylossFunc(Function):
         hardtanh = nn.Hardtanh(min_val=0, max_val=1, inplace=False)
         target = target.float()
         index_ = dist(target)
-        dim_ = target.shape[1]
+        # dim_ = target.shape[1]
         target = torch.squeeze(target, 1)
         I1 = target + alpha * hardtanh(
             feat_levelset / sigma)  # G_t + alpha*H(phi) in eq(5)
-        dmn = fftn(I1, 2)
+        dmn = fftn(I1, dim=(-2, -1), norm='forward')
         dmn_r = dmn[:, :, 0]  # dmn's real part
         dmn_i = dmn[:, :, 1]  # dmm's imagine part
+        # fixed: IndexError: too many indices for tensor of dimension 3
         # dmn_r = dmn[:, :, :, 0]  # dmn's real part
         # dmn_i = dmn[:, :, :, 1]  # dmm's imagine part
         dmn2 = dmn_r * dmn_r + dmn_i * dmn_i  # dmn^2
@@ -121,7 +122,8 @@ class EnergylossFunc(Function):
 
         F_energy = torch.sum(index_ * dmn2) / feat_levelset.shape[
             0] / feat_levelset.shape[1] / feat_levelset.shape[2]  # eq(8)
-
+        if F_energy.real:
+            F_energy = F_energy.real
         return F_energy
 
     @staticmethod
@@ -130,5 +132,5 @@ class EnergylossFunc(Function):
         index_ = torch.unsqueeze(index_, 0)
         index_ = torch.unsqueeze(index_, 3)
         F_diff = -0.5 * index_ * dmn  # eq(9)
-        diff = ifftn(F_diff, 2) / feature.shape[0]  # eq
+        diff = ifftn(F_diff, dim=(-2, -1), norm='forward').real / feature.shape[0]  # eq
         return None, Variable(-grad_output * diff), None, None, None
