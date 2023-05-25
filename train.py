@@ -77,7 +77,7 @@ def get_args():
     return parser.parse_args()
 
 
-def train_model(# do not change params here
+def train_model(  # do not change params here
     model,
     device,
     epochs: int = 100,
@@ -257,16 +257,18 @@ def train_model(# do not change params here
             logging.info('Validation loss score: {}'.format(val_score))
             if loss_type == 'energy':
                 _masks_pred0 = masks_pred[0].float().cpu().detach().numpy()
-                _masks_pred0 = np.where(_masks_pred0 > 0.1, 1, 0) * 255.0
+                _masks_pred0 = _masks_pred0 / np.max(_masks_pred0) * 255.0
             try:
                 experiment.log({
                     'learning rate': optimizer.param_groups[0]['lr'],
                     'validation loss': val_score,
                     'images': wandb.Image(images[0].cpu()),
                     'masks': {
-                        'true': wandb.Image(true_masks[0].float().cpu()),
+                        'true':
+                        wandb.Image(true_masks[0].float().cpu()),
                         'pred':
-                        wandb.Image(masks_pred[0].float().cpu() * 255.0) if loss_type != 'energy' else wandb.Image(_masks_pred0),
+                        wandb.Image(masks_pred[0].float().cpu() * 255.0) if
+                        loss_type != 'energy' else wandb.Image(_masks_pred0),
                     },
                     'step': global_step,
                     'epoch': epoch,
@@ -325,18 +327,39 @@ def train_model(# do not change params here
     })
     if os.path.exists('record.csv'):
         record = pd.read_csv('record.csv', header=0)
-        record = pd.concat([record, pd.Series([
-            train_loss.cpu().numpy(), train_dice_score.cpu().numpy(), train_iou.cpu().numpy(), train_f1.cpu().numpy(), val_loss.cpu().numpy(), val_dice_score.cpu().numpy(), val_iou.cpu().numpy(), val_f1.cpu().numpy()
-        ], index=record.columns)])
+        record = pd.concat([
+            record,
+            pd.Series([
+                train_loss.cpu().numpy(),
+                train_dice_score.cpu().numpy(),
+                train_iou.cpu().numpy(),
+                train_f1.cpu().numpy(),
+                val_loss.cpu().numpy(),
+                val_dice_score.cpu().numpy(),
+                val_iou.cpu().numpy(),
+                val_f1.cpu().numpy()
+            ],
+                      index=record.columns)
+        ])
     else:
-        record = pd.DataFrame(
-            columns=[
-                'train loss', 'train dice score', 'train iou', 'train f1',
-                'val loss', 'val dice score', 'val iou', 'val f1'
-            ])
-        record = pd.concat([record, pd.Series([
-            train_loss.cpu().numpy(), train_dice_score.cpu().numpy(), train_iou.cpu().numpy(), train_f1.cpu().numpy(), val_loss.cpu().numpy(), val_dice_score.cpu().numpy(), val_iou.cpu().numpy(), val_f1.cpu().numpy()
-        ], index=record.columns)])
+        record = pd.DataFrame(columns=[
+            'train loss', 'train dice score', 'train iou', 'train f1',
+            'val loss', 'val dice score', 'val iou', 'val f1'
+        ])
+        record = pd.concat([
+            record,
+            pd.Series([
+                train_loss.cpu().numpy(),
+                train_dice_score.cpu().numpy(),
+                train_iou.cpu().numpy(),
+                train_f1.cpu().numpy(),
+                val_loss.cpu().numpy(),
+                val_dice_score.cpu().numpy(),
+                val_iou.cpu().numpy(),
+                val_f1.cpu().numpy()
+            ],
+                      index=record.columns)
+        ])
     record.to_csv('record.csv', index=False)
 
     experiment.finish()

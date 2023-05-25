@@ -1,6 +1,7 @@
 # Two-Stage-MedImg-Seg
 For MSDM6980
 
+present link: https://docs.google.com/presentation/d/1Lzmad5BwLLHfSBbIZjy2d3KWjs6y3EwRXAVD71ZHRoE/edit?usp=sharing
 
 ## Usage
 ### Train
